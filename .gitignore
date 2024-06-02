@@ -1,0 +1,11 @@
+# .gitignore 파일 내용
+
+# Python 관련
+*.pyc
+__pycache__/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# 기타
+.DS_Store

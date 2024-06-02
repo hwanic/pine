@@ -1,0 +1,123 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © GEKKONOMIC
+
+// *****************************************************************************
+// @FileName: vom -v0.1 -Volume Amount.pine
+// @description 거래량, 거래금액 관련 지표 알림
+// @created: 2024-06-01
+// @see
+// @history: 
+// -----------------------------------------------------------------------------
+// Date       vfile    vgit    vtvw    note
+// -----------------------------------------------------------------------------
+// 2024-06-01 v0.1     v0.1    v1.0    변화가 0인 경우에도 거래량 증가 시 백그라운드 표시로 수정
+// *****************************************************************************
+
+//@version=5
+indicator(title='vom -v0.1 -Volume Amount', shorttitle='V', format=format.volume, overlay=false)
+
+len = input(240 , "MA Length") // MA 길이
+wet = input(60  , "MA Weight") // Weighted 가중치
+
+ma       = ta.sma(volume, len)
+ma_wet   = ma * wet
+
+// 거래량 변화 체크
+chg      = close - open
+grow     = chg > 0
+fall     = chg < 0
+even     = chg == 0
+groweven = chg >= 0
+
+diff = groweven and groweven[1] ? false : fall and fall[1] ? false : true // 직전봉과 캔들색 다름
+ovwma = volume > wet
+ovvol = volume > volume[1] ? true : false
+
+// Pump Volume
+// 급등락 진행 중 초단기 인터벌에서 추세 반전은 순간 거래량 폭발이 선행됨
+pump_amt = input.int(400000, 'Pump Amount', step = 100000)
+pump_vol = timeframe.isseconds ? pump_amt/close : 0
+pump     = volume > pump_vol
+pump_S   = timeframe.isseconds and pump
+
+
+// Plot
+col_ma   = color.new(color.yellow, 50)
+col_vol  = close >= open    ? color.new(#26A69A, 0) : color.new(#EF5350, 30)
+col_wvol = ovwma and groweven ? color.new(color.lime, 30) : ovwma   and fall ? color.new(color.red, 30) : na
+col_pump = timeframe.isseconds ? color.white : na
+col_bg   = diff and groweven and ovvol ? color.new(color.lime, 70) : diff and  fall and ovvol ? color.new(color.red, 70) : na
+
+plot(volume  , 'Volume'   , color=col_vol, style=plot.style_columns, trackprice=true)
+plot(ma_wet  , 'Volume MA', color=col_ma , display=display.none)
+plot(pump_vol, 'Volume MA', color=col_pump, display=display.all)
+
+bgcolor(timeframe.isseconds ? na : col_bg)
+
+// plotshape(ovwma, color=col_wvol, style=shape.xcross, location=location.top, size=size.small, title="가중치 오버")
+// plotshape(ovvol, color=col_bg, style=shape.circle, location=location.abovebar, size=size.tiny, title="직전봉 오버")
+
+
+
+// *******************************************************************
+// Alert
+// *******************************************************************
+ema1 = ta.ema(close, 20)
+ema2 = ta.ema(close, 60)
+uptrend   = ema1 > ema2
+downtrend = ema1 < ema2
+
+// entl = downtrend and ovwma and diff and ovvol and groweven
+// ents = uptrend   and ovwma and diff and ovvol and fall
+
+// 알림
+arrMsg = array.new_string(0)
+// array.push(arrMsg, "c=" + str.tostring(close))
+
+// if entl
+//     array.insert(arrMsg, 0, "👿")
+//     array.insert(arrMsg, 1, syminfo.ticker)
+//     array.insert(arrMsg, 2, "rvs-L")
+// if ents
+//     array.insert(arrMsg, 0, "🤩")
+//     array.insert(arrMsg, 1, syminfo.ticker)
+//     array.insert(arrMsg, 2, "rvs-S")
+
+// if (rsi_un)
+//     array.insert(arrMsg, 0, "[L] 😡")
+//     array.insert(arrMsg, 1, "RSI 20 ▼")
+// if (rsi_ov)
+//     array.insert(arrMsg, 0, "[S] 🤑")
+//     array.insert(arrMsg, 1, "RSI 80 ▲")
+// if (isBull)
+//     array.insert(arrMsg, 0, "[L] 👿")
+//     array.insert(arrMsg, 1, isBull ? "Bull" : isHidBull ? "Hidden Bull" : "N/A")
+// if (isBear)
+//     array.insert(arrMsg, 0, "[S] 😊")
+//     array.insert(arrMsg, 1, isBear ? "Bear" : isHidBear ? "Hidden Bear" : "N/A")
+
+roc = request.security(syminfo.tickerid, '1D', ta.roc(close, 1))
+array.push(arrMsg, 'amt=〔' + str.tostring(close * volume, format.volume) + '〕')
+array.push(arrMsg, 'bas=〔' + str.tostring(pump_amt, format.volume) + '〕')
+array.push(arrMsg, 'c=〔'   + str.tostring(close) + '〕')
+array.push(arrMsg, 'r=〔'   + str.tostring(math.round(roc, 1)) + '〕%')
+
+// Webhook
+msg_replace = str.replace_all(str.replace_all(str.tostring(arrMsg), '[', ''), ']', '')
+// msg_hook    = '{"username":"' + ticker + '", "content":"' + str.tostring(msg_replace) + '"}'
+// msg_hook    = '{"content": "' + msg_replace + ', "username":"' + ticker + '"}'
+
+trigger = pump_S
+if trigger
+    alert(msg_replace, alert.freq_once_per_bar_close)
+    // alert(msg_hook, alert.freq_once_per_bar)
+
+
+// ****************************************************************************
+// Table
+// ****************************************************************************
+// vol_gap = volume - wet_ema
+// var tb  = table.new(position=position.bottom_center, columns=2, rows=1, bgcolor=color.new(color.black, 100), border_width=0)
+// if barstate.islast
+//     table.cell(table_id=tb, column=0, row=0, text=str.tostring(wet_ema, format.volume), text_color=color.new(color.yellow, 0), text_size=size.normal)
+//     table.cell(table_id=tb, column=1, row=0, text=str.tostring(vol_gap, format.volume), text_color=color.new(color.white , 0), text_size=size.normal)
