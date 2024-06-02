@@ -1,9 +1,10 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © GEKKONOMIC
+// © GEKKONOMIC - hwanic
 
 // *****************************************************************************
 // @FileName: vom -v0.1 -Volume Amount.pine
 // @description 거래량, 거래금액 관련 지표 알림
+// @author: GEKKONOMIC - hwanic
 // @created: 2024-06-01
 // @see
 // @history: 
